@@ -1,0 +1,41 @@
+[project]
+name = "airflow-control"
+version = "0.1.0"
+description = "Control Vögtlin red-y smart mass-flow controllers over RS-485 Modbus: browser GUI and CLI for continuous flow and timed puffs"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Neuroengineering Laboratory (Ramdya Lab), EPFL" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.0",
+    "minimalmodbus>=2.1.1",
+    "pyserial>=3.5",
+    "typer>=0.27.3",
+    "uvicorn>=0.54.0",
+    "websockets>=17.2",
+]
+
+[project.scripts]
+airflow-control = "airflow_control.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airflow Control</title>
+  <script>
+    try {
+      const t = localStorage.getItem("airflow-theme");
+      if (t) document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>airflow_control</h1>
+    <span id="conn" class="pill pill-bad">disconnected</span>
+    <span id="logpath" class="dim mono"></span>
+    <span class="spacer"></span>
+    <button id="theme" class="btn btn-ghost" title="Toggle light/dark">Theme</button>
+    <button id="quit" class="btn" title="Set every MFC to 0 and stop the airflow_control server">Quit</button>
+    <button id="stop-all" class="btn btn-stop" title="Set every MFC to 0 (Esc)">STOP ALL <kbd>Esc</kbd></button>
+  </header>
+
+  <main id="channels"></main>
+
+  <div id="bye" class="bye" hidden>
+    <h2>airflow_control has shut down</h2>
+    <p class="dim">All MFCs were set to 0. You can close this tab.</p>
+  </div>
+
+  <section class="panel events">
+    <h2>Setpoint log</h2>
+    <table>
+      <thead><tr><th>time</th><th>MFC</th><th>event</th><th>setpoint</th><th></th></tr></thead>
+      <tbody id="events"></tbody>
+    </table>
+  </section>
+
+  <template id="channel-tpl">
+    <article class="channel">
+      <header class="ch-head">
+        <div>
+          <h2 class="ch-label"></h2>
+          <div class="ch-meta dim mono"></div>
+        </div>
+        <div class="readout">
+          <div><span class="big ch-flow">–</span> <span class="dim unit"></span></div>
+          <div class="dim mono">set <span class="ch-set">–</span> · valve <span class="ch-valve">–</span>%</div>
+        </div>
+      </header>
+      <div class="ch-error" hidden></div>
+
+      <div class="controls">
+        <form class="panel ctl ctl-cont" novalidate>
+          <h3>Continuous</h3>
+          <div class="row">
+            <input class="cont-range" type="range" min="0">
+            <input class="cont-val num" type="number" min="0" required>
+            <span class="dim unit"></span>
+          </div>
+          <div class="row step-row dim">
+            <label>step <select class="cont-step"></select></label>
+            <span class="unit"></span>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn btn-primary">Apply <kbd>↵</kbd></button>
+            <button type="button" class="btn cont-off">Off</button>
+            <span class="state cont-state dim">off</span>
+          </div>
+        </form>
+
+        <form class="panel ctl ctl-puff" novalidate>
+          <h3>Puff</h3>
+          <div class="row">
+            <label>flow <input class="puff-val num" type="number" min="0" required></label>
+            <span class="dim unit"></span>
+            <label>for <input class="puff-dur num" type="number" min="0" required></label>
+            <span class="dim">s</span>
+          </div>
+          <div class="row step-row dim">
+            <label>step <select class="puff-step"></select></label>
+            <span class="unit"></span>
+            <label><select class="dur-step"></select></label>
+            <span>s</span>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn btn-primary btn-puff">Puff</button>
+            <div class="progress"><div class="progress-bar"></div></div>
+            <span class="state puff-state dim mono"></span>
+          </div>
+        </form>
+      </div>
+
+      <figure class="chart">
+        <figcaption class="legend">
+          <span><i class="sw sw-flow"></i>measured</span>
+          <span><i class="sw sw-set"></i>setpoint</span>
+          <span class="dim">last 30 s</span>
+        </figcaption>
+        <div class="chart-wrap">
+          <canvas></canvas>
+          <div class="tooltip" hidden></div>
+        </div>
+      </figure>
+    </article>
+  </template>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

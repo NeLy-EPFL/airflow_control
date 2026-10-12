@@ -1,0 +1,39 @@
+# Example airflow_control config. `airflow-control init` writes one for your
+# devices; otherwise copy this to the user config file
+#   Linux/macOS: ~/.config/airflow_control/config.toml
+#   Windows:     %APPDATA%\airflow_control\config.toml
+# or pass --config PATH / set $AIRFLOW_CONTROL_CONFIG. Every key is optional
+# except the [[mfc]] tables.
+
+[bus]
+# Empty or omitted = autodetect the Vögtlin PDM-U USB adapter.
+# Examples: "/dev/serial/by-id/usb-Voegtlin_...-port0" (Linux), "COM4" (Windows),
+# "/dev/cu.usbserial-XXXX" (macOS).
+port = ""
+baudrate = 9600   # red-y factory setting; the frame is always 8N2
+timeout_s = 0.2
+
+# One table per device on the bus. `name` is the id used by the CLI (-m) and the
+# REST API, `label` the title in the GUI. `cap` is the maximum setpoint in the
+# device's unit (see `airflow-control info`); omit it to allow full scale.
+[[mfc]]
+name = "air"
+label = "Air"
+address = 1
+
+[[mfc]]
+name = "co2"
+label = "CO2"
+address = 2
+cap = 1.0
+
+[gui]
+host = "127.0.0.1"   # "0.0.0.0" to reach the GUI from other machines (no authentication!)
+port = 8765
+poll_hz = 10         # readout / plot refresh rate
+
+[puff]
+max_duration_s = 30
+
+[log]
+dir = "~/airflow_control_logs"   # one JSONL file of setpoint changes per session
