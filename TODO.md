@@ -8,11 +8,21 @@
 - [ ] Reuse the existing ball tracking from
       [scapepp `twop`](https://github.com/NeLy-EPFL/scapepp/tree/twop), live
       and frame by frame.
-- [ ] State machine (see `docs/airflow-mfc-handoff.md`):
-      WAIT_FOR_BALL_LOSS → RAMP → HOLD, set 0 on exit or crash, and a watchdog
-      that stops the flow if tracking frames stop.
+- [ ] State machine driving the air MFC:
+      ```
+      WAIT_FOR_BALL_LOSS: ball absent for T_absent        → RAMP
+      RAMP:               start at e.g. 0.8 L/min, +step every Δt, up to the cap
+                          ball at X_max (contact)         → set 0 → HOLD
+                          at the cap for too long         → set 0, alert
+      HOLD:               ball leaves X_max (pushed away) → RAMP
+      always:             on exit or crash                → set 0
+      ```
+      Plus a watchdog that sets 0 if tracking frames stop arriving.
 - [ ] Define the parameters: `T_absent`, ramp start/step/Δt, ramp cap, `X_max`
-      contact threshold + hysteresis, max ramp duration.
+      contact threshold + hysteresis, max ramp duration. Typical working range
+      is 0.8–1.8 L/min; ~1.2 L/min moves the ball.
+- [ ] Timing is not a concern for second-scale ramps: a Modbus write takes
+      ~10–20 ms and the MFC responds within a few hundred ms.
 - [ ] Decide how behavior frames are synced to ThorSync (camera trigger → ThorSync).
 
 ## CO2 (2P rig)

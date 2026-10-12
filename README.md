@@ -189,13 +189,14 @@ on its own clock. Only two connections are used: the **analog output** and its
 screw-terminal breakouts).
 
 A 4–20 mA output must be turned into a voltage with a shunt resistor *R*
-across Output and GND. A simple build:
+across Output and GND. A simple build, with the resistor in the terminals of a
+BNC-to-screw-terminal adapter:
 
 ```
-MFC screw terminals                    BNC-to-screw-terminal adapter
-  Output ──┬──────── jumper wire ────── centre ─┐
-           R (shunt)                            ├── BNC cable ── DAQ analog input
-  GND ─────┴──────── jumper wire ────── shield ─┘
+MFC screw terminals         BNC-to-screw-terminal adapter
+  Output ── jumper wire ──── centre ──┬──┐
+                                      R  ├── BNC cable ── DAQ analog input
+  GND ───── jumper wire ──── shield ──┴──┘
 ```
 
 ```

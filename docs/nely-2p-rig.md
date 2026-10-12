@@ -1,10 +1,7 @@
 # Deployment: NeLy 2P rig
 
 Notes on how airflow_control is set up on the NeLy two-photon rig, as a worked
-example. [`airflow-mfc-handoff.md`](airflow-mfc-handoff.md) is the original
-planning document. It is partly outdated: the 1.8 L/min cap there came from a
-wiring fault and is now 2.0, and the analog wiring is as described below (the
-shunt resistor sits in the screw terminals, not soldered into a coax).
+example.
 
 ## Machines
 
@@ -48,13 +45,13 @@ has three screw terminals: **Output**, **GND** and **Signal**.
 
 | MFC terminal | Connection |
 |--------------|------------|
-| Output | jumper wire → BNC-to-screw-terminal adapter, centre |
-| GND    | jumper wire → BNC-to-screw-terminal adapter, shield |
+| Output | jumper wire → BNC-to-screw-terminal adapter, centre terminal |
+| GND    | jumper wire → BNC-to-screw-terminal adapter, shield terminal |
 | Signal | not connected |
 
-- A **270 Ω** resistor is clamped across Output and GND in the screw terminals,
-  together with the jumper wires. It turns the 4–20 mA output into a voltage of
-  1.08–5.40 V.
+- A **270 Ω** resistor sits in the BNC adapter's screw terminals, across
+  centre and shield, clamped together with the jumper wires. It turns the
+  4–20 mA output into 1.08–5.40 V.
 - The BNC goes straight to ThorSync's breakout box.
 - DAQ input **AI3** as labelled on the breakout box. The box numbers inputs from 0
   while ThorSync's channel list numbers from 1, so mind the off-by-one.
@@ -62,4 +59,11 @@ has three screw terminals: **Output**, **GND** and **Signal**.
   the neighbouring PID channel. The ThorSync channel is analog, ±10 V.
 - Conversion: `flow_L_min = (V − 1.08) / 2.16`. Onset detection: first rising
   crossing of ~1.5 V.
+- Measured when this was set up:
+
+  | Flow | Expected | Measured |
+  |------|----------|----------|
+  | off | 1.08 V | ~1.0 V |
+  | 1 L/min | 3.24 V | ~3.2 V |
+  | 2 L/min | 5.40 V | ~5 V |
 - Typical experimental range is 0.8–1.8 L/min; about 1.2 L/min moves the ball.
