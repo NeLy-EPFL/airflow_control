@@ -37,33 +37,34 @@ runs on Linux, macOS and Windows, and adds timed puffs.
 
 ### 1. Wire the devices
 
-Each red-y has a 9-pin D-sub connector for power, analog and digital signals.
-With Vögtlin's *cablePAD* (PAD 328-2103, loose ends), the leads are:
+Each device needs:
 
-| Pin | Colour | Signal (red-y smart) |
-|-----|--------|----------------------|
-| 1 | white  | Analog ground |
-| 2 | brown  | Supply ground |
-| 3 | green  | Supply +24 Vdc |
-| 4 | yellow | Analog output (mA or V) |
-| 5 | grey   | Analog setpoint input (controllers only) |
-| 6 | pink   | RS-485 Tx+ |
-| 7 | blue   | RS-485 Tx− |
-| 8 | red    | RS-485 Rx− |
-| 9 | black  | RS-485 Rx+ |
-
-(Pins 1 and 2 are connected internally from hardware V6.03.) Older PAC/PDC
-cables use different colours, so check the pin numbers, not the colours. Pinout:
-[cablePAD datasheet](https://www.voegtlin.com/data/329-3024_ml_cablePAD.pdf).
-
-- **Power:** 24 Vdc between pins 3 and 2.
-- **RS-485:** the bus can be wired 2-wire (half duplex) or 4-wire (full duplex;
-  firmware updates need 4-wire). Follow the wiring diagrams in §1.10 of the
+- **24 Vdc power.**
+- **RS-485 to the PC:** Vögtlin's PDM-U cable (USB) or any USB–RS-485 adapter.
+  The bus can be wired 2-wire (half duplex) or 4-wire (full duplex; firmware
+  updates need 4-wire), following §1.10 of the
   [digital communication manual](https://voegtlin.com/data/329-3042_en_manualsmart_digicom.pdf).
-  With the PDM-U cable this wiring is already done. Several devices share one
-  bus by connecting them in parallel to the same lines.
-- **Analog setpoint (pin 5):** leave it unconnected. The setpoint comes over
-  RS-485.
+  Several devices share one bus by connecting them in parallel to the same lines.
+- **Optional: the analog output** (and its ground), to record the measured flow
+  on a DAQ. See [Recording the actual flow](#recording-the-actual-flow-optional).
+
+Leave the analog setpoint input unconnected; the setpoint comes over RS-485.
+
+How these signals come out of the device depends on the Vögtlin connection
+accessory you use: a cable with loose leads, a breakout with screw terminals,
+etc. Follow that accessory's datasheet and its terminal labels. For reference,
+the red-y smart 9-pin D-sub carries (from the
+[cablePAD datasheet](https://www.voegtlin.com/data/329-3024_ml_cablePAD.pdf)):
+
+| Pin | Signal | | Pin | Signal |
+|-----|--------|-|-----|--------|
+| 1 | Analog ground | | 6 | RS-485 Tx+ |
+| 2 | Supply ground | | 7 | RS-485 Tx− |
+| 3 | Supply +24 Vdc | | 8 | RS-485 Rx− |
+| 4 | Analog output (mA or V) | | 9 | RS-485 Rx+ |
+| 5 | Analog setpoint input (controllers only) | | | |
+
+Pins 1 and 2 are connected internally from hardware V6.03.
 
 ### 2. Give each device a unique address
 
@@ -181,10 +182,21 @@ line per setpoint change:
 
 ## Recording the actual flow (optional)
 
-The MFC's analog output (pin 4 against analog ground, pin 1) reports the measured
-flow independently of the PC. This lets an acquisition system (DAQ,
-ThorSync, …) record what the gas actually did, on its own clock. With a 4–20 mA
-output, put a shunt resistor *R* across pins 4 and 1 and record the voltage:
+The MFC's analog output reports the measured flow independently of the PC. This
+lets an acquisition system (DAQ, ThorSync, …) record what the gas actually did,
+on its own clock. Only two connections are used: the **analog output** and its
+**ground** (D-sub pins 4 and 1, usually labelled *Output* and *GND* on
+screw-terminal breakouts).
+
+A 4–20 mA output must be turned into a voltage with a shunt resistor *R*
+across Output and GND. A simple build:
+
+```
+MFC screw terminals                    BNC-to-screw-terminal adapter
+  Output ──┬──────── jumper wire ────── centre ─┐
+           R (shunt)                            ├── BNC cable ── DAQ analog input
+  GND ─────┴──────── jumper wire ────── shield ─┘
+```
 
 ```
 V = I · R          flow = (V / R − 4 mA) / 16 mA × full scale
@@ -193,7 +205,7 @@ V = I · R          flow = (V / R − 4 mA) / 16 mA × full scale
 For example, R = 270 Ω gives 1.08 V at zero flow and 5.40 V at full scale. Pick
 *R* so that 20 mA × R fits the DAQ input range. Devices with a voltage output
 need no resistor. If a differential DAQ input picks up mains hum, try
-single-ended, referenced to analog ground.
+single-ended.
 
 ## How it works
 

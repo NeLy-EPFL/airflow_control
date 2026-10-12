@@ -3,7 +3,8 @@
 Notes on how airflow_control is set up on the NeLy two-photon rig, as a worked
 example. [`airflow-mfc-handoff.md`](airflow-mfc-handoff.md) is the original
 planning document. It is partly outdated: the 1.8 L/min cap there came from a
-wiring fault and is now 2.0.
+wiring fault and is now 2.0, and the analog wiring is as described below (the
+shunt resistor sits in the screw terminals, not soldered into a coax).
 
 ## Machines
 
@@ -42,14 +43,19 @@ address = 2
 
 ## Flow recorded in ThorSync
 
-The air MFC's 4–20 mA analog output goes through a 270 Ω shunt to ThorSync.
+Only the air MFC's analog output is recorded. On the MFC side, its connector
+has three screw terminals: **Output**, **GND** and **Signal**.
 
-| MFC terminal  | Connection |
-|---------------|------------|
-| Analog output | coax centre |
-| Analog ground | coax braid |
-| —             | 270 Ω across centre ↔ braid |
+| MFC terminal | Connection |
+|--------------|------------|
+| Output | jumper wire → BNC-to-screw-terminal adapter, centre |
+| GND    | jumper wire → BNC-to-screw-terminal adapter, shield |
+| Signal | not connected |
 
+- A **270 Ω** resistor is clamped across Output and GND in the screw terminals,
+  together with the jumper wires. It turns the 4–20 mA output into a voltage of
+  1.08–5.40 V.
+- The BNC goes straight to ThorSync's breakout box.
 - DAQ input **AI3** as labelled on the breakout box. The box numbers inputs from 0
   while ThorSync's channel list numbers from 1, so mind the off-by-one.
 - The breakout switch for AI3 is set to **SE**: DIFF put ~1.6 V of 50 Hz hum on
