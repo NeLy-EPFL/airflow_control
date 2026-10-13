@@ -83,3 +83,31 @@ def test_init_writes_config(tmp_path, monkeypatch):
     assert [m.address for m in config.load(out).mfcs] == [1, 2]
     r = CliRunner().invoke(cli.app, ["init", "-o", str(out)])
     assert r.exit_code == 1 and "--force" in r.output
+
+
+def test_ball_delivery_is_opt_in(tmp_path):
+    from airflow_control import ball_delivery, config
+    from airflow_control.controller import build_rig
+
+    plain = tmp_path / "plain.toml"
+    plain.write_text('[[mfc]]\nname = "air"\naddress = 1\n')
+    cfg = config.load(plain)
+    rig = build_rig(cfg, sim=True)
+    assert ball_delivery.build(cfg, rig, sim=True) is None  # --sim alone: MFCs only
+    bd = ball_delivery.build(cfg, rig, enabled=True, sim=True)  # --sim --ball
+    assert bd.tracking.source.kind == "sim"
+    with pytest.raises(ValueError, match="needs a camera"):
+        ball_delivery.build(cfg, rig, enabled=True)  # --ball without a camera
+
+    on = tmp_path / "on.toml"
+    on.write_text(plain.read_text() + '[plugins.ball_delivery]\ncamera = "camera_LM"\n')
+    cfg = config.load(on)
+    bd = ball_delivery.build(cfg, rig)
+    assert bd.tracking.source.kind == "octacam" and bd.tracking.loop.channel.name == "air"
+    assert ball_delivery.build(cfg, rig, enabled=False) is None  # --no-ball
+    rig.close()
+
+    old = tmp_path / "old.toml"
+    old.write_text(plain.read_text() + '[tracking]\ncamera = "camera_LM"\n')
+    with pytest.raises(ValueError, match="plugins.ball_delivery"):
+        config.load(old)

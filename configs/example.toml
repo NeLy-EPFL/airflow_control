@@ -29,7 +29,7 @@ cap = 1.0
 
 [gui]
 host = "127.0.0.1"   # "0.0.0.0" to reach the GUI from other machines (no authentication!)
-port = 8765
+port = 8766          # octacam's GUI uses 8765
 poll_hz = 10         # readout / plot refresh rate
 
 [puff]
@@ -37,3 +37,12 @@ max_duration_s = 30
 
 [log]
 dir = "~/airflow_control_logs"   # one JSONL file of setpoint changes per session
+
+# Plugin: closed-loop ball delivery, off unless this table is present (or with
+# `gui --camera NAME`). Ball tracking reads the live preview of one camera from a
+# running octacam GUI; the closed loop drives one MFC.
+# [plugins.ball_delivery]
+# camera = "camera_LM"            # octacam camera name
+# octacam_url = "127.0.0.1:8765"  # octacam GUI address
+# mfc = "air"                     # MFC that blows the ball; default: the first one
+# downsample = 4                  # tracker downsampling of the preview frames

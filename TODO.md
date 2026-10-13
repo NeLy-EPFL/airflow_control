@@ -1,29 +1,21 @@
 # TODO
 
 ## Closed-loop ball delivery
-- [ ] Get live behavior-camera frames from octacam. octacam has no per-frame
-      plugin hook yet, and only one process can open the camera. Options:
-      octacam shares frames with other processes (e.g. through shared memory),
-      or the tracker runs as an octacam plugin.
-- [ ] Reuse the existing ball tracking from
-      [scapepp `twop`](https://github.com/NeLy-EPFL/scapepp/tree/twop), live
-      and frame by frame.
-- [ ] State machine driving the air MFC:
-      ```
-      WAIT_FOR_BALL_LOSS: ball absent for T_absent        → RAMP
-      RAMP:               start at e.g. 0.8 L/min, +step every Δt, up to the cap
-                          ball at X_max (contact)         → set 0 → HOLD
-                          at the cap for too long         → set 0, alert
-      HOLD:               ball leaves X_max (pushed away) → RAMP
-      always:             on exit or crash                → set 0
-      ```
-      Plus a watchdog that sets 0 if tracking frames stop arriving.
-- [ ] Define the parameters: `T_absent`, ramp start/step/Δt, ramp cap, `X_max`
-      contact threshold + hysteresis, max ramp duration. Typical working range
-      is 0.8–1.8 L/min; ~1.2 L/min moves the ball.
-- [ ] Timing is not a concern for second-scale ramps: a Modbus write takes
-      ~10–20 ms and the MFC responds within a few hundred ms.
-- [ ] Decide how behavior frames are synced to ThorSync (camera trigger → ThorSync).
+- [ ] First run on the rig with a fly: calibrate camera_LM in the live view,
+      tune the ramp (start, step, interval, maximum) and the contact / release
+      distances and times.
+- [ ] Ramp: optionally hold the level while the ball is visibly approaching,
+      and/or start the next ramp near the flow of the last delivery.
+- [ ] Sync to ThorSync: the track log has the PC wall clock per frame; octacam's
+      preview has no camera frame index. Line up with the recording via
+      octacam's recording start time, or ask octacam to send the frame index.
+- [ ] Ball vanished or repeated rests: alert the operator (sound,
+      notification) so the ball can be replaced after the recording.
+- [ ] Platform not found (moved further than its search window): offer a wider
+      search to find it automatically instead of dragging the box.
+- [ ] Guard against a ball template marked on empty background (it matches
+      everywhere): e.g. refuse a template that scores high on frames without
+      the ball.
 
 ## CO2 (2P rig)
 - [ ] Not tested on the rig yet (not needed for current experiments).

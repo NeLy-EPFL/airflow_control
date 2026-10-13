@@ -1,6 +1,7 @@
 """``airflow-control`` command line.
 
-Setup: scan, init, set-address. Use: info, read, set, puff, stop, gui.
+Setup: scan, init, set-address. Use: info, read, set, puff, stop, gui (with the
+optional closed-loop ball delivery).
 """
 
 from __future__ import annotations
@@ -207,6 +208,26 @@ def gui(
     port: Annotated[int | None, typer.Option(help="HTTP port.")] = None,
     browser: Annotated[bool, typer.Option(help="Open a browser tab.")] = True,
     sim: Annotated[bool, typer.Option(help="Simulated MFCs, no hardware.")] = False,
+    ball: Annotated[
+        bool | None,
+        typer.Option(
+            "--ball/--no-ball",
+            help="Closed-loop ball delivery plugin. Default: on when the config has a "
+            "plugins.ball_delivery table or --camera/--video is given. With --sim: a "
+            "simulated ball.",
+        ),
+    ] = None,
+    camera: Annotated[
+        str | None,
+        typer.Option("--camera", help="Ball delivery: octacam camera with the ball (camera_LM)."),
+    ] = None,
+    octacam: Annotated[
+        str | None,
+        typer.Option("--octacam", help="Ball delivery: octacam GUI address (127.0.0.1:8765)."),
+    ] = None,
+    video: Annotated[
+        str | None, typer.Option("--video", help="Ball delivery: track a video file (testing).")
+    ] = None,
 ):
     """Start the browser GUI. All MFCs are set to 0 when it exits."""
     import uvicorn
@@ -215,12 +236,27 @@ def gui(
 
     cfg = _cfg(config)
     rig = build_rig(cfg, sim=sim)
+    try:
+        from airflow_control import ball_delivery
+
+        plugins = []
+        bd = ball_delivery.build(
+            cfg, rig, enabled=ball, sim=sim, camera=camera, octacam=octacam, video=video
+        )
+        if bd:
+            plugins.append(bd)
+    except Exception:
+        rig.close()
+        raise
     host = host or cfg.host
     port = port or cfg.gui_port
     url = f"http://{'localhost' if host in ('127.0.0.1', '0.0.0.0') else host}:{port}"
     typer.echo(
         f"airflow_control GUI on {url}  ({'SIMULATED MFCs' if sim else f'log: {rig.events.path}'})"
     )
+    if bd:
+        tr = bd.tracking
+        typer.echo(f"ball delivery: {tr.source.describe()} -> {tr.loop.channel.name}")
     if browser:  # give uvicorn a moment to bind before the tab loads
         threading.Timer(1.0, webbrowser.open, [url]).start()
     server: uvicorn.Server | None = None
@@ -229,13 +265,15 @@ def gui(
         typer.echo("shutdown requested from the GUI")
         server.should_exit = True
 
-    app_ = create_app(rig, request_exit=request_exit)
+    app_ = create_app(rig, plugins=plugins, request_exit=request_exit)
     server = uvicorn.Server(
         uvicorn.Config(app_, host=host, port=port, log_level="warning", timeout_graceful_shutdown=2)
     )
     try:
         server.run()
     finally:
+        for p in plugins:
+            p.close()
         rig.close()
         typer.echo("all MFCs set to 0; bye")
 

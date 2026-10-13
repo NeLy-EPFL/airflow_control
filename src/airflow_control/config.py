@@ -1,4 +1,4 @@
-"""Configuration: serial bus, the MFCs on it, GUI and logging.
+"""Configuration: serial bus, the MFCs on it, GUI, logging and plugin settings.
 
 Lookup order: ``--config PATH``, ``$AIRFLOW_CONTROL_CONFIG``, then the user
 config file (:func:`user_config_path`). ``airflow-control init`` scans the bus
@@ -44,10 +44,12 @@ class Config:
     timeout_s: float = 0.2
     mfcs: list[MFCConfig] = field(default_factory=list)
     host: str = "127.0.0.1"
-    gui_port: int = 8765
+    gui_port: int = 8766  # octacam's GUI uses 8765
     poll_hz: float = 10.0
     max_puff_s: float = 30.0
     log_dir: Path = field(default_factory=lambda: Path.home() / "airflow_control_logs")
+    # [plugins.<name>] tables, each parsed by its plugin; absent = plugin off
+    plugins: dict[str, dict] = field(default_factory=dict)
     source: Path | None = None  # file this config was loaded from
 
     def resolve_port(self) -> str:
@@ -95,6 +97,9 @@ def load(path: str | Path | None = None) -> Config:
     cfg.max_puff_s = raw.get("puff", {}).get("max_duration_s", cfg.max_puff_s)
     if "dir" in raw.get("log", {}):
         cfg.log_dir = Path(raw["log"]["dir"]).expanduser()
+    cfg.plugins = dict(raw.get("plugins", {}))
+    if "tracking" in raw:  # before plugins existed
+        raise ValueError(f"{path}: rename the [tracking] section to [plugins.ball_delivery]")
     names = [m.name for m in cfg.mfcs]
     if len(set(names)) != len(names):
         raise ValueError(f"duplicate MFC names in {path}: {names}")
@@ -126,7 +131,7 @@ def render_config(port: str, baudrate: int, devices: list[MFCInfo]) -> str:
     lines += [
         "[gui]",
         'host = "127.0.0.1"  # "0.0.0.0" to reach the GUI from other machines',
-        "port = 8765",
+        "port = 8766  # octacam uses 8765",
         "poll_hz = 10",
         "",
         "[puff]",
@@ -134,6 +139,12 @@ def render_config(port: str, baudrate: int, devices: list[MFCInfo]) -> str:
         "",
         "[log]",
         'dir = "~/airflow_control_logs"',
+        "",
+        "# Optional plugin: closed-loop ball delivery from a running octacam GUI's preview",
+        "# [plugins.ball_delivery]",
+        '# camera = "camera_LM"           # octacam camera name',
+        '# octacam_url = "127.0.0.1:8765"',
+        '# mfc = "mfc1"                   # MFC that blows the ball',
         "",
     ]
     return "\n".join(lines)

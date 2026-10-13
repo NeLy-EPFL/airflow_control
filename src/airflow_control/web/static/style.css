@@ -81,7 +81,8 @@ h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 .btn-puff { min-width: 96px; font-weight: 600; }
 kbd { font-size: 11px; opacity: .75; margin-left: 4px; }
 
-main { padding: 16px; display: grid; gap: 16px; }
+main, .channels { display: grid; gap: 16px; }
+main { padding: 16px; }
 
 .channel, .panel {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -140,3 +141,4 @@ main { padding: 16px; display: grid; gap: 16px; }
 .events table { width: 100%; border-collapse: collapse; margin-top: 8px; font: 12px ui-monospace, "SF Mono", Consolas, monospace; }
 .events th { text-align: left; color: var(--text-dim); font-weight: 500; }
 .events td, .events th { padding: 3px 8px; border-bottom: 1px solid var(--border); }
+#plugins:empty { display: none; }

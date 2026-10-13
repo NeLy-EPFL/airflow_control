@@ -1,0 +1,28 @@
+/* Ball delivery plugin panel; uses the core theme variables (web/static/style.css). */
+.loop-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); gap: 12px; align-items: start; }
+@media (max-width: 900px) { .loop-body { grid-template-columns: 1fr; } }
+.cam { display: grid; gap: 8px; }
+.cam-wrap { position: relative; background: var(--panel-2); border-radius: 6px; overflow: hidden; }
+.cam-canvas { display: block; width: 100%; height: auto; touch-action: none; }
+.cam-canvas.drawing { cursor: crosshair; }
+.cam-canvas.movable { cursor: move; }
+.cam-empty { position: absolute; inset: 0; display: grid; place-items: center; }
+.cam-empty[hidden] { display: none; }
+.cam-help { font-size: 12px; min-height: 1.4em; }
+.btn.tool.active { border-color: var(--accent); color: var(--accent); }
+.loop-side { display: grid; gap: 12px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 13px; }
+.kv dt { color: var(--text-dim); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+.params { display: grid; gap: 8px; font-size: 13px; }
+.params .row { gap: 6px; }
+.params .num { width: 64px; }
+.params .grp { min-width: 92px; color: var(--text-dim); }
+.badge {
+  font: 600 13px ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: .04em;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid currentColor; color: var(--text-dim);
+}
+.badge.st-ramp { color: var(--accent); }
+.badge.st-contact { color: var(--green); }
+.badge.st-paused { color: var(--amber); }
+.badge.st-rest { color: var(--amber); }

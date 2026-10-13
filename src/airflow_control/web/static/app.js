@@ -314,12 +314,37 @@ function renderEvents(events) {
   }));
 }
 
+// --- plugins: optional panels above the MFCs (see airflow_control/plugin.py) ---
+const plugins = new Map(); // name -> {render(status), redraw()} once its script registered
+const pluginsLoading = new Set();
+window.airflowPlugin = (name, hooks) => plugins.set(name, hooks);
+
+async function loadPlugin(name) {
+  pluginsLoading.add(name);
+  try {
+    const res = await fetch(`/plugins/${name}/panel.html`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const box = document.createElement("div");
+    box.innerHTML = await res.text();
+    document.getElementById("plugins").append(...box.childNodes);
+    const script = document.createElement("script");
+    script.src = `/plugins/${name}/panel.js`;
+    document.body.append(script);
+  } catch (e) {
+    console.error(`plugin ${name}: ${e.message}`);
+  }
+}
+
 function render(status) {
   for (const ch of status.channels) {
     if (!cards.has(ch.name)) cards.set(ch.name, buildCard(ch));
     updateCard(cards.get(ch.name), ch);
   }
   renderEvents(status.events);
+  for (const name of Object.keys(status.plugins || {})) {
+    if (!pluginsLoading.has(name)) loadPlugin(name);
+    plugins.get(name)?.render(status);
+  }
   document.getElementById("logpath").textContent = status.log_path ? `log: ${status.log_path}` : "";
 }
 
@@ -365,6 +390,7 @@ async function quit() {
   }
   shuttingDown = true;
   document.getElementById("channels").hidden = true;
+  document.getElementById("plugins").hidden = true;
   document.querySelector(".events").hidden = true;
   document.getElementById("bye").hidden = false;
   for (const id of ["stop-all", "quit"]) document.getElementById(id).disabled = true;
@@ -378,6 +404,7 @@ document.getElementById("theme").addEventListener("click", () => {
   root.dataset.theme = root.dataset.theme === "light" ? "dark" : "light";
   store("airflow-theme", root.dataset.theme);
   for (const c of cards.values()) draw(c);
+  for (const p of plugins.values()) p.redraw?.();
 });
 window.addEventListener("resize", () => { for (const c of cards.values()) draw(c); });
 
