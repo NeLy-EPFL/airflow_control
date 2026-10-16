@@ -80,6 +80,16 @@ count as leaving through the entry edge. The templates had been cut with the
 cover on: without it the ball scored only ~0.65 at the platform and wasn't
 detected anywhere else, so calibrate in the conditions of the experiment.
 
+First session with a fly (2026-10-13, `261013_THxCI80/Fly1`, six recordings):
+17 deliveries reached contact, each with the ball center at the contact
+position. The platform there runs out of the image at the right and bottom
+(platform box 252, 480, 207, 290), which is why the platform box may now extend
+past the image edge. After recording 005 ended, the loop, still armed, cycled
+ramps and rests for 12 minutes until disarmed by hand; it now disarms at the
+end of the recording. During several ramps in recordings 002 and 005 the ball
+was not in view at all (best score ≤ 0.40), and the loop alternated ramps and
+rests as intended.
+
 ## Flow recorded in ThorSync
 
 Only the air MFC's analog output is recorded. On the MFC side, its connector
