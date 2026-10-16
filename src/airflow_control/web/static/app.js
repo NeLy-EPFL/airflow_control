@@ -335,6 +335,29 @@ async function loadPlugin(name) {
   }
 }
 
+// --- folds: special settings and history, collapsed until wanted -------------
+// Every <details data-fold="key"> starts closed; opening one remembers it (per
+// browser) and opens the others with the same key (all MFCs' history at once).
+const FOLD_KEY = "airflow-fold-";
+
+function initFolds() {
+  for (const fold of document.querySelectorAll("details[data-fold]:not([data-bound])")) {
+    fold.dataset.bound = "1";
+    const key = FOLD_KEY + fold.dataset.fold;
+    try {
+      fold.open = localStorage.getItem(key) === "1";
+    } catch (e) {}
+    fold.addEventListener("toggle", () => {
+      try {
+        localStorage.setItem(key, fold.open ? "1" : "0");
+      } catch (e) {}
+      for (const twin of document.querySelectorAll(`details[data-fold="${fold.dataset.fold}"]`)) {
+        if (twin.open !== fold.open) twin.open = fold.open;
+      }
+    });
+  }
+}
+
 function render(status) {
   for (const ch of status.channels) {
     if (!cards.has(ch.name)) cards.set(ch.name, buildCard(ch));
@@ -346,6 +369,7 @@ function render(status) {
     plugins.get(name)?.render(status);
   }
   document.getElementById("logpath").textContent = status.log_path ? `log: ${status.log_path}` : "";
+  initFolds(); // new cards and plugin panels
 }
 
 function connect() {

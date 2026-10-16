@@ -142,3 +142,19 @@ main { padding: 16px; }
 .events th { text-align: left; color: var(--text-dim); font-weight: 500; }
 .events td, .events th { padding: 3px 8px; border-bottom: 1px solid var(--border); }
 #plugins:empty { display: none; }
+
+/* Folds: special settings and history, collapsed by default (app.js initFolds). */
+details.fold > summary {
+  cursor: pointer; user-select: none; list-style: none;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before {
+  content: "\25B8"; color: var(--text-dim); display: inline-block; width: 1em;
+  transition: transform .15s;
+}
+details.fold[open] > summary::before { transform: rotate(90deg); }
+details.fold[open] > summary { margin-bottom: 8px; }
+details.fold-small > summary { font-size: 12px; }
+details.fold-small[open] > summary { margin-bottom: 4px; }
+.params-summary { font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }

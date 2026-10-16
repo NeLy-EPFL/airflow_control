@@ -35,13 +35,13 @@
     <p class="dim">All MFCs were set to 0. You can close this tab.</p>
   </div>
 
-  <section class="panel events">
-    <h2>Setpoint log</h2>
+  <details class="panel events fold" data-fold="setpoint-log">
+    <summary><h2>Setpoint log</h2></summary>
     <table>
       <thead><tr><th>time</th><th>MFC</th><th>event</th><th>setpoint</th><th></th></tr></thead>
       <tbody id="events"></tbody>
     </table>
-  </section>
+  </details>
 
   <template id="channel-tpl">
     <article class="channel">
@@ -65,10 +65,13 @@
             <input class="cont-val num" type="number" min="0" required>
             <span class="dim unit"></span>
           </div>
-          <div class="row step-row dim">
-            <label>step <select class="cont-step"></select></label>
-            <span class="unit"></span>
-          </div>
+          <details class="fold fold-small" data-fold="step-sizes">
+            <summary class="dim">step sizes</summary>
+            <div class="row step-row dim">
+              <label>step <select class="cont-step"></select></label>
+              <span class="unit"></span>
+            </div>
+          </details>
           <div class="row">
             <button type="submit" class="btn btn-primary">Apply <kbd>↵</kbd></button>
             <button type="button" class="btn cont-off">Off</button>
@@ -84,12 +87,15 @@
             <label>for <input class="puff-dur num" type="number" min="0" required></label>
             <span class="dim">s</span>
           </div>
-          <div class="row step-row dim">
-            <label>step <select class="puff-step"></select></label>
-            <span class="unit"></span>
-            <label><select class="dur-step"></select></label>
-            <span>s</span>
-          </div>
+          <details class="fold fold-small" data-fold="step-sizes">
+            <summary class="dim">step sizes</summary>
+            <div class="row step-row dim">
+              <label>step <select class="puff-step"></select></label>
+              <span class="unit"></span>
+              <label><select class="dur-step"></select></label>
+              <span>s</span>
+            </div>
+          </details>
           <div class="row">
             <button type="submit" class="btn btn-primary btn-puff">Puff</button>
             <div class="progress"><div class="progress-bar"></div></div>
@@ -98,6 +104,8 @@
         </form>
       </div>
 
+      <details class="fold" data-fold="mfc-history">
+      <summary class="dim">History</summary>
       <figure class="chart">
         <figcaption class="legend">
           <span><i class="sw sw-flow"></i>measured</span>
@@ -109,6 +117,7 @@
           <div class="tooltip" hidden></div>
         </div>
       </figure>
+      </details>
     </article>
   </template>
 

@@ -43,16 +43,20 @@
         </dl>
       </div>
       <form class="panel ctl loop-params" novalidate>
-        <h3>Settings</h3>
-        <div class="params"></div>
-        <div class="row">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <span class="state params-state dim"></span>
-        </div>
+        <details class="fold" data-fold="ball-settings">
+          <summary><h3>Settings</h3> <span class="params-summary dim mono"></span></summary>
+          <div class="params"></div>
+          <div class="row">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <span class="state params-state dim"></span>
+          </div>
+        </details>
       </form>
     </div>
   </div>
 
+  <details class="fold" data-fold="ball-history">
+  <summary class="dim">History</summary>
   <figure class="chart">
     <figcaption class="legend">
       <span><i class="sw sw-flow"></i>ball distance to contact (ball diameters)</span>
@@ -64,4 +68,5 @@
       <div class="tooltip" hidden></div>
     </div>
   </figure>
+  </details>
 </section>

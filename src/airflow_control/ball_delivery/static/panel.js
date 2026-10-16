@@ -13,6 +13,7 @@
     vBall: q(".v-ball"), vDist: q(".v-dist"), vFlow: q(".v-flow"), vCycles: q(".v-cycles"),
     vLast: q(".v-lastflow"), vPerf: q(".v-perf"),
     form: q(".loop-params"), params: q(".params"), paramsState: q(".params-state"),
+    paramsSummary: q(".params-summary"),
     dist: q(".dist-canvas"), tooltip: q(".tooltip"),
   };
   // Overlay colours sit on a grayscale camera image, not on the page theme.
@@ -545,6 +546,11 @@
         if (document.activeElement !== input) input.value = l.params[input.name];
       }
     }
+    // The settings stay folded: say what they are set to.
+    const pp = l.params;
+    el.paramsSummary.textContent =
+      `ramp ${pp.start_flow} \u2192 ${pp.max_flow} ${unit}, +${pp.step_flow} every ` +
+      `${pp.step_interval_s} s \u00b7 contact within ${pp.contact_dist} \u00d8`;
 
     if (d && (!hist.length || d.t > hist[hist.length - 1].t)) {
       hist.push({ t: d.t, d: d.distance, visible: d.visible });
