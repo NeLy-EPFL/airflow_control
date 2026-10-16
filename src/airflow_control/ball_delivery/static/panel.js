@@ -24,8 +24,9 @@
     ball_extra: "Drag a box around the ball where it waits partly out of view. " +
       "The box may extend into the grey margin past the image edge.",
     platform: "Drag a box over a part of the platform the ball and the fly's legs don't cover " +
-      "(e.g. its lower-left block). This cuts a new platform template; if the platform only " +
-      "moved, drag its blue box onto it instead.",
+      "(e.g. its lower-left block). If the platform is partly out of view, the box may extend " +
+      "into the grey margin. This cuts a new platform template; if the platform only moved, " +
+      "drag its blue box onto it instead.",
   };
   const PARAMS = [ // [group label, [[key, label before, unit after], …]]
     ["Ramp", [["start_flow", "start", "U"], ["step_flow", "+", "U"], ["step_interval_s", "every", "s"]]],
@@ -140,10 +141,9 @@
       const [x, y] = toImage(ev);
       if (move) {
         [move.dx, move.dy] = [x - move.x0, y - move.y0];
-        if (move.what === "platform") { // keep the box inside the image
-          const [bx0, bx1, by0, by1] = move.box;
-          move.dx = Math.max(-bx0, Math.min(frame.w - bx1, move.dx));
-          move.dy = Math.max(-by0, Math.min(frame.h - by1, move.dy));
+        if (move.what === "platform") { // it may go past the edge, its center stays in view
+          move.dx = Math.max(-move.cx, Math.min(frame.w - move.cx, move.dx));
+          move.dy = Math.max(-move.cy, Math.min(frame.h - move.cy, move.dy));
         }
         drawCam();
         return;
@@ -168,10 +168,7 @@
       const d = drag, kind = tool;
       drag = null;
       setTool(null);
-      let box = [d.x0, d.x1, d.y0, d.y1].map(Math.round);
-      if (kind === "platform") { // must lie inside the image
-        box = [clampX(box[0]), clampX(box[1]), clampY(box[2]), clampY(box[3])];
-      }
+      const box = [d.x0, d.x1, d.y0, d.y1].map(Math.round);
       if (Math.abs(box[1] - box[0]) < 8 || Math.abs(box[3] - box[2]) < 8) return drawCam();
       await call(`${API}/box`, { kind, box });
     });
@@ -223,8 +220,6 @@
 
   // --- camera view -------------------------------------------------------------
   const margin = () => (frame ? [Math.round(frame.w * 0.12), Math.round(frame.h * 0.12)] : [0, 0]);
-  const clampX = (x) => Math.max(0, Math.min(frame.w, x));
-  const clampY = (y) => Math.max(0, Math.min(frame.h, y));
   function toImage(ev) {
     const r = el.canvas.getBoundingClientRect();
     const [mx, my] = margin();

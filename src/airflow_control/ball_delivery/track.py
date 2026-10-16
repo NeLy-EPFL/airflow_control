@@ -17,7 +17,10 @@ On top of that, :class:`Tracker` adds what the closed loop needs:
 
 - the **platform** the fly stands on, located with its own template but only
   within a small window around where it was marked (it does not move; a global
-  search would sometimes match the ball's dark lower half instead);
+  search would sometimes match the ball's dark lower half instead). It may be
+  partly out of view: its box may extend past the image edge, and it is matched
+  on the pixels in view only (masked NCC), both when its template is cut and
+  when it is searched for;
 - the **contact position**: where the ball center is when the ball touches the
   platform. The ball runs on fixed rails while the platform can be moved, so the
   contact follows the platform along the track (x) and stays at the track's
@@ -57,6 +60,9 @@ TRAIL_S = 0.3
 TRAIL_SCORE_DROP = 0.15
 TRAIL_STEP_X = 1.0
 TRAIL_STEP_Y = 0.25
+# At least this fraction of the platform box must be in view (the rest may lie
+# past the image edge), and of its template's known pixels to match on.
+MIN_PLATFORM_INSIDE = 0.25  # the GUI keeps the box center in view
 
 
 def to_gray_downsampled(frame, ds: int = DEFAULT_DOWNSAMPLE) -> np.ndarray:
@@ -83,6 +89,23 @@ def make_template(
     return img[y0 + pad : y1 + pad, x0 + pad : x1 + pad]
 
 
+def cut_masked(
+    frame, box: tuple[int, int, int, int], ds: int = DEFAULT_DOWNSAMPLE
+) -> tuple[np.ndarray, np.ndarray]:
+    """Template and mask (True where the box was in the frame) for *box*, which
+    may extend past the frame edge; to match with ``masked_ncc_map``."""
+    x0, x1, y0, y1 = (int(v) // ds for v in box)
+    img = to_gray_downsampled(frame, ds)
+    h, w = img.shape
+    t = np.zeros((y1 - y0, x1 - x0), np.float32)
+    mask = np.zeros(t.shape, bool)
+    ix0, ix1, iy0, iy1 = max(x0, 0), min(x1, w), max(y0, 0), min(y1, h)
+    if ix1 > ix0 and iy1 > iy0:
+        t[iy0 - y0 : iy1 - y0, ix0 - x0 : ix1 - x0] = img[iy0:iy1, ix0:ix1]
+        mask[iy0 - y0 : iy1 - y0, ix0 - x0 : ix1 - x0] = True
+    return t, mask
+
+
 def ncc_map(image: np.ndarray, template: np.ndarray) -> np.ndarray:
     """NCC of *template* at every position where it fits fully inside *image*:
     result[y, x] is the match with the template's top-left at (y, x)."""
@@ -95,6 +118,33 @@ def ncc_map(image: np.ndarray, template: np.ndarray) -> np.ndarray:
     s2 = fftconvolve(image * image, ones, mode="valid")
     var = np.maximum(s2 - s1**2 / n, _MIN_VARIANCE_FRACTION * tvar * n)
     return num / (np.sqrt(tvar * n) * np.sqrt(var))
+
+
+def _corr(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    return fftconvolve(image, kernel[::-1, ::-1], mode="valid")
+
+
+def masked_ncc_map(
+    image: np.ndarray, valid: np.ndarray, template: np.ndarray, tmask: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """NCC like ``ncc_map``, but over the pixels known in both: *valid* marks the
+    image's real pixels (not padding past the frame edge), *tmask* the
+    template's (the part of its box that was in view when it was cut). Returns
+    (NCC, number of pixels it was computed on), per template position."""
+    f = np.where(valid, image, 0).astype(np.float64)
+    m = valid.astype(np.float64)
+    tm = tmask.astype(np.float64)
+    t = np.where(tmask, template, 0).astype(np.float64)
+    n = np.round(_corr(m, tm))
+    nn = np.maximum(n, 1)
+    sf, st = _corr(f, tm), _corr(m, t)
+    cov = _corr(f, t) - sf * st / nn
+    vf = _corr(f * f, tm) - sf**2 / nn
+    vt = _corr(m, t * t) - st**2 / nn
+    tvar = float(t[tmask].var()) if tmask.any() else 0.0
+    vf = np.maximum(vf, _MIN_VARIANCE_FRACTION * tvar * nn)
+    vt = np.maximum(vt, 1e-6 * nn)
+    return cov / np.sqrt(vf * vt), n
 
 
 _inside_cache: dict = {}
@@ -163,7 +213,9 @@ class Calibration:
     ball: list[np.ndarray] = field(default_factory=list)
     ball_boxes: list[Box] = field(default_factory=list)
     platform: np.ndarray | None = None
-    platform_box: Box | None = None
+    # the platform template's pixels that were in view when it was cut
+    platform_mask: np.ndarray | None = None
+    platform_box: Box | None = None  # may extend past the image edge
     # ball center at contact: (x minus the platform center's x, y), frame px.
     # x follows the platform; y is the track's height (the rails don't move)
     contact: tuple[float, float] | None = None
@@ -203,6 +255,7 @@ class Calibration:
         arrays = {f"ball{i}": t for i, t in enumerate(self.ball)}
         if self.platform is not None:
             arrays["platform"] = self.platform
+            arrays["platform_mask"] = self.platform_mask
         meta = {k: v for k, v in self.as_dict().items() if k not in ("ball_diameter", "missing")}
         buf = io.BytesIO()
         np.savez_compressed(buf, meta=np.array(repr(meta)), **arrays)
@@ -219,6 +272,10 @@ class Calibration:
             n = sum(1 for k in z.files if k.startswith("ball"))
             ball = [z[f"ball{i}"] for i in range(n)]
             platform = z["platform"] if "platform" in z.files else None
+            mask = z["platform_mask"] if "platform_mask" in z.files else None
+
+        if platform is not None and mask is None:  # cut before masks: fully in view
+            mask = np.ones(platform.shape, bool)
 
         def box(b):
             return tuple(int(v) for v in b) if b is not None else None
@@ -234,6 +291,7 @@ class Calibration:
             ball=ball,
             ball_boxes=[box(b) for b in meta["ball_boxes"]],
             platform=platform,
+            platform_mask=mask,
             platform_box=box(meta["platform_box"]),
             contact=tuple(float(v) for v in contact) if contact else None,
         )
@@ -310,21 +368,26 @@ class Tracker:
         self.cal.ball.append(make_template(frame, box, self.cal.ds))
         self.cal.ball_boxes.append(box)
 
-    def _check_inside(self, box: Box) -> None:
+    def _check_in_view(self, box: Box) -> None:
+        """Enough of the platform box in view (the rest may lie past the edge)."""
         h, w = self.cal.frame_shape
-        if box[0] < 0 or box[2] < 0 or box[1] > w or box[3] > h:
-            raise ValueError("the platform box must lie inside the image")
+        x0, x1, y0, y1 = box
+        inside = max(0, min(x1, w) - max(x0, 0)) * max(0, min(y1, h) - max(y0, 0))
+        if inside < MIN_PLATFORM_INSIDE * (x1 - x0) * (y1 - y0):
+            raise ValueError(
+                f"at least {MIN_PLATFORM_INSIDE:.0%} of the platform box must be in the image"
+            )
 
     def set_platform(self, frame: np.ndarray, box) -> None:
         """Cut the platform template. A contact position already set keeps its
         place in the image."""
         self._check_shape(frame)
         box = self._norm_box(box)
-        self._check_inside(box)
         if box[1] - box[0] < 4 * self.cal.ds or box[3] - box[2] < 4 * self.cal.ds:
             raise ValueError("box too small")
+        self._check_in_view(box)
         contact = self.contact_position()
-        self.cal.platform = make_template(frame, box, self.cal.ds)
+        self.cal.platform, self.cal.platform_mask = cut_masked(frame, box, self.cal.ds)
         self.cal.platform_box = box
         self._platform_pos = _center(box)
         if contact is not None:
@@ -339,7 +402,7 @@ class Tracker:
         cx, cy = _center(self.cal.platform_box)
         dx, dy = int(round(x - cx)), int(round(y - cy))
         box = (x0 + dx, x1 + dx, y0 + dy, y1 + dy)
-        self._check_inside(box)
+        self._check_in_view(box)
         self.cal.platform_box = box
         self._platform_pos = _center(box)
 
@@ -377,15 +440,31 @@ class Tracker:
         self._trail = None
 
     # --- tracking ---------------------------------------------------------
-    def _locate_platform(self, frame: np.ndarray):
+    def _locate_platform(self, img: np.ndarray):
+        """(x, y, score) of the platform's best match within platform_margin of its
+        box, in frame px. *img*: the downsampled frame. Positions past the image
+        edge are searched too, matching on the part in view."""
         cal = self.cal
+        ds, t, tmask = cal.ds, cal.platform, cal.platform_mask
+        th, tw = t.shape
         x0, x1, y0, y1 = cal.platform_box
-        h, w = frame.shape[:2]
-        m = int(self.platform_margin * max(x1 - x0, y1 - y0)) + cal.ds
-        wx0, wy0 = max(0, x0 - m), max(0, y0 - m)
-        sub = frame[wy0 : min(h, y1 + m), wx0 : min(w, x1 + m)]
-        px, py, ps, _ = locate(sub, [cal.platform], cal.ds, pad=False)
-        return px + wx0, py + wy0, ps
+        m = int(self.platform_margin * max(x1 - x0, y1 - y0)) // ds + 1
+        wx, wy = x0 // ds - m, y0 // ds - m  # search window's top-left, in cells
+        win = np.zeros((th + 2 * m, tw + 2 * m), np.float32)
+        valid = np.zeros(win.shape, bool)
+        h, w = img.shape
+        ix0, ix1 = max(wx, 0), min(wx + win.shape[1], w)
+        iy0, iy1 = max(wy, 0), min(wy + win.shape[0], h)
+        if ix1 > ix0 and iy1 > iy0:
+            win[iy0 - wy : iy1 - wy, ix0 - wx : ix1 - wx] = img[iy0:iy1, ix0:ix1]
+            valid[iy0 - wy : iy1 - wy, ix0 - wx : ix1 - wx] = True
+        ncc, n = masked_ncc_map(win, valid, t, tmask)
+        ncc = np.where(n >= MIN_PLATFORM_INSIDE * tmask.sum(), ncc, -np.inf)
+        y, x = np.unravel_index(int(np.argmax(ncc)), ncc.shape)
+        score = float(ncc[y, x])
+        if not np.isfinite(score):  # nothing of it in view
+            return None
+        return (wx + x + tw / 2) * ds, (wy + y + th / 2) * ds, score
 
     def _follow(self, t, bx, by, score, visible, *, entry_left: bool, w: int) -> bool | None:
         """Update the ball's trail; whether it is at (or about to reach) the entry edge."""
@@ -419,9 +498,12 @@ class Tracker:
         visible = bs >= self.threshold
         px = py = ps = cx = cy = dist = edge = None
         if cal.platform is not None:
-            px, py, ps = self._locate_platform(frame)
-            if ps >= self.platform_threshold or self._platform_pos is None:
+            found = self._locate_platform(to_gray_downsampled(frame, cal.ds))
+            px, py, ps = found or (None, None, 0.0)
+            if found and (ps >= self.platform_threshold or self._platform_pos is None):
                 self._platform_pos = (px, py)
+            elif self._platform_pos is None:
+                self._platform_pos = _center(cal.platform_box)
             px, py = float(self._platform_pos[0]), float(self._platform_pos[1])
             if cal.contact is not None:
                 cx, cy = px + cal.contact[0], cal.contact[1]

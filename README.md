@@ -240,7 +240,9 @@ cross-correlation), as in [scapepp](https://github.com/NeLy-EPFL/scapepp)'s
 ball tracker: a sphere looks the same however it rolls, so a template cut from
 one frame matches it anywhere along the track, and the match score tells
 whether it is in view. The platform is located the same way, within a small
-window around where it was marked. The ball runs on fixed rails while the
+window around where it was marked. It may be partly out of view: its box can
+extend past the image edge, and only the part in view is matched (both when
+its template is cut and when it is searched for). The ball runs on fixed rails while the
 platform can be moved between animals, so the contact position follows the
 platform along the track and stays at the track's height. The ball's distance
 to it is measured along the track, in ball diameters.
@@ -280,7 +282,8 @@ to day, and NCC doesn't mind a ball that is lighter or dimmer:
    the grey margin past the image edge. Without this, a ball mostly out of view
    isn't detected.
 3. Click **Platform** and drag a box over a part of the platform that the ball
-   and the animal's legs won't cover.
+   and the animal's legs won't cover. If the platform runs out of the image,
+   let the box extend into the grey margin over where it continues.
 4. With the ball touching the platform, click **Set contact**. (Or, with no
    ball in view, **Set contact** puts a first guess next to the platform, to drag
    into place.) A dashed circle shows the contact position.
@@ -293,6 +296,8 @@ to day, and NCC doesn't mind a ball that is lighter or dimmer:
   enough: the tracker searches around the box and snaps onto the platform. A
   small shift is followed without dragging; when the platform isn't found the
   box turns red and dashed (*platform not found*). The contact moves along.
+  The box may be dragged partly past the image edge (its center stays in
+  view) when the platform is mounted further out.
 - If needed, drag the **dashed circle** to where the ball should touch.
 
 Both can also be dragged while armed, during the recording. Re-marking a

@@ -71,8 +71,8 @@ def test_calibration_steps_and_checks():
     assert tr.contact_position() == pytest.approx(contact)
     with pytest.raises(ValueError, match="frame size"):
         tr.process(f[:200], t=0)
-    with pytest.raises(ValueError, match="inside the image"):
-        tr.set_platform(f, (-10, 50, 0, 50))
+    with pytest.raises(ValueError, match="in the image"):  # mostly past the edge
+        tr.set_platform(f, (-100, 20, 0, 50))
     with pytest.raises(ValueError, match="no ball|not detected"):
         tr.set_contact(tr.process(frame_with_ball(-500), t=0))
 
@@ -122,8 +122,8 @@ def test_platform_moved_for_a_new_animal(tracker):
     assert tracker.cal.platform is template
     assert det.platform_x == pytest.approx(_center_x(MovedPlatform.platform_box()), abs=4)
     assert det.distance < 0.1
-    with pytest.raises(ValueError, match="inside the image"):
-        tracker.move_platform(470, 250)
+    with pytest.raises(ValueError, match="in the image"):
+        tracker.move_platform(560, 250)
 
 
 def test_contact_placed_by_hand(tracker):
@@ -172,3 +172,48 @@ def test_calibration_saved_before_track_contact_loads(tracker, tmp_path):
     (tmp_path / "old.npz").write_bytes(buf.getvalue())
     cal = Calibration.load(tmp_path / "old.npz")
     assert cal.contact == (-50.0, (pb[2] + pb[3]) / 2 - 40.0)
+    assert cal.platform_mask.shape == cal.platform.shape and cal.platform_mask.all()
+
+
+def shifted(frame, dx, dy):
+    """The same view with everything moved by (dx, dy) px, e.g. a platform
+    mounted further right and lower, partly out of view."""
+    h, w = frame.shape
+    out = np.full_like(frame, 20)
+    out[max(dy, 0) : h + min(dy, 0), max(dx, 0) : w + min(dx, 0)] = frame[
+        max(-dy, 0) : h - max(dy, 0), max(-dx, 0) : w - max(dx, 0)
+    ]
+    return out
+
+
+def test_platform_partly_out_of_view(tracker):
+    cx = SimBallSource.contact_x()
+    x0, x1, y0, y1 = SimBallSource.platform_box()
+    frame = shifted(frame_with_ball(cx), 80, 32)  # platform box 30 % past the right edge
+    tracker.move_platform(_center_x((x0, x1, 0, 0)) + 70, (y0 + y1) / 2 + 30)
+    assert tracker.cal.platform_box[1] > frame.shape[1]
+    det = tracker.process(frame, t=0)
+    assert det.platform_score > tracker.platform_threshold
+    assert det.platform_x == pytest.approx(_center_x((x0, x1, 0, 0)) + 80, abs=4)
+    assert det.platform_y == pytest.approx((y0 + y1) / 2 + 32, abs=4)
+    assert det.distance < 0.1
+
+
+def test_platform_template_cut_partly_out_of_view(tracker, tmp_path):
+    cx = SimBallSource.contact_x()
+    x0, x1, y0, y1 = SimBallSource.platform_box()
+    contact = tracker.contact_position()
+    # cut and calibrated with the platform 20 % past the right edge
+    tracker.set_platform(shifted(frame_with_ball(cx), 80, 0), (x0 + 80, x1 + 80, y0, y1))
+    assert not tracker.cal.platform_mask.all()  # the part past the edge is unknown
+    tracker.set_contact_at(contact[0] + 80, contact[1])
+    tracker.cal.save(tmp_path / "cal.npz")
+    tracker.cal = Calibration.load(tmp_path / "cal.npz")
+    assert not tracker.cal.platform_mask.all()
+    # back fully in view: matched on the part that was cut
+    tracker.move_platform(_center_x((x0, x1, 0, 0)), (y0 + y1) / 2)
+    det = tracker.process(frame_with_ball(cx), t=0)
+    assert det.platform_score > tracker.platform_threshold
+    assert det.platform_x == pytest.approx(_center_x((x0, x1, 0, 0)), abs=4)
+    assert (det.contact_x, det.contact_y) == pytest.approx(contact, abs=4)
+    assert det.distance < 0.1
