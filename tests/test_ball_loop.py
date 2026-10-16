@@ -4,9 +4,10 @@ import time
 import pytest
 from fake import fake_mfc
 
-from airflow_control.ball_delivery.loop import ClosedLoop, LoopParams
+from airflow_control.ball_delivery.loop import ClosedLoop, LoopParams, Tracking
 from airflow_control.ball_delivery.track import Detection
 from airflow_control.controller import Channel, EventLog
+from airflow_control.frames import FrameSource
 
 
 def det(distance, edge=False):
@@ -232,3 +233,30 @@ def test_ball_vanishing_mid_ramp_holds_the_ramp_briefly(loop):
     loop.update(det(None), t + 3.6)  # stop waiting
     loop.update(det(None), t + 3.7)
     assert loop.state == "ramp" and setpoint(loop) == pytest.approx(0.8)  # steps again
+
+
+class IdleSource(FrameSource):
+    kind = "test"
+
+    def _run(self) -> None:
+        self._stop.wait()
+
+
+def test_recording_end_disarms_a_loop_armed_during_it(loop):
+    src = IdleSource()
+    tr = Tracking(src, loop.channel, loop.events, state_dir=None)
+    tr.loop.arm(det(1.0))
+    for rec in (None, False):  # no recorder (video), or outside a recording (brush test)
+        src.recording = rec
+        tr._follow_recording()
+        assert tr.loop.state == "ramp"
+    src.recording = True
+    tr._follow_recording()
+    assert tr.loop.state == "ramp"
+    src.recording = False  # the recording ended
+    tr._follow_recording()
+    assert tr.loop.state == "off" and tr.loop.reason == "recording ended"
+    assert setpoint(loop) == 0
+    tr.loop.arm(det(1.0))  # armed again, between recordings: runs until disarmed
+    tr._follow_recording()
+    assert tr.loop.state == "ramp"

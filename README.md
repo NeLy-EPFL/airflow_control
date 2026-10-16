@@ -215,8 +215,11 @@ The loop drives one MFC:
 
 Once armed, the loop never stops by itself: delivering the ball matters more
 than saving air when something looks wrong. It stops only when you disarm, on
-any manual action on its MFC (setpoint, puff, STOP), and when the GUI exits.
-If camera frames stop, the air goes off (*paused*) until they return.
+any manual action on its MFC (setpoint, puff, STOP), when the GUI exits, and
+when the octacam recording it was armed during ends (*OFF · recording ended*;
+arm again for the next recording). Armed outside a recording, e.g. for a test
+with a brush, it runs until disarmed. If camera frames stop, the air goes off
+(*paused*) until they return.
 
 **Ball vanishing.** The ball normally leaves the view through the image edge it
 comes from, rolling back down the track. A ball pushed away fast can cross the
@@ -228,7 +231,7 @@ covering it, or a fall), the loop waits up to 2 s: the ramp holds its flow and
 a contact isn't counted as released, so a brief occlusion doesn't restart the
 air. After that it carries on as if the ball had rolled back, and counts it
 (*ball vanished n×* in the status). A ball that really fell off gets ramps and
-rests until the recording ends and you replace it.
+rests until the recording ends (which disarms the loop) and you replace it.
 
 ### Tracking
 
@@ -245,7 +248,8 @@ to it is measured along the track, in ball diameters.
 Frames come from a running **octacam GUI**: airflow_control connects to its
 WebSocket as one more viewer and asks for one camera's preview (~30 Hz, at most
 640 px, JPEG). octacam needs no change, and the camera must be grabbing (with an
-external trigger: being triggered). Tracking takes 5–15 ms per frame.
+external trigger: being triggered). octacam's state messages tell when a
+recording starts and ends. Tracking takes 5–15 ms per frame.
 
 ### Setup
 

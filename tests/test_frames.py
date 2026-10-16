@@ -61,7 +61,17 @@ def test_octacam_source_against_a_fake_octacam():
     assert [f.seq for f in got] == [1, 2, 3]
     assert got[0].image.shape == (48, 64) and abs(int(got[0].image[0, 40]) - 160) < 8
     assert got[2].recording and not got[0].recording
+    assert src.recording is False  # octacam's state message says preview
     assert src.sensor == (128, 96) and src.error is None
+
+
+def test_octacam_recording_follows_its_state_messages():
+    src = OctacamSource("127.0.0.1:1", "camera_LM")
+    assert src.recording is None
+    for state, rec in [("preview", False), ("waiting", True), ("recording", True),
+                       ("finishing", False), ("idle", False)]:  # fmt: skip
+        src._on_text(None, json.dumps({"type": "telemetry", "state": state, "ready": True}))
+        assert src.recording is rec and src.status()["recording"] is rec
 
 
 def test_octacam_unknown_camera_is_reported():

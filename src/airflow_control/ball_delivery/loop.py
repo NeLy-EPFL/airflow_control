@@ -18,7 +18,9 @@ States (``ClosedLoop.state``)::
 
 Once armed, the loop never stops by itself: delivering the ball to the animal
 matters more than saving air when something looks wrong. Only a disarm, a
-manual action on its MFC (setpoint, puff, stop) or the GUI exiting stop it.
+manual action on its MFC (setpoint, puff, stop), the end of the camera's
+recording (when armed during one, see :class:`Tracking`) or the GUI exiting
+stop it.
 
 A ball normally leaves the view through the edge it comes from (rolling back
 down the track). One that vanishes elsewhere (the animal covering it, or a
@@ -385,6 +387,7 @@ class Tracking:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._ticker: threading.Thread | None = None
+        self._recording_seen = False  # the source recorded while the loop was armed
         self._load()
 
     # --- persistence ------------------------------------------------------
@@ -436,9 +439,22 @@ class Tracking:
     def _tick_loop(self) -> None:
         while not self._stop.wait(0.1):
             try:
+                self._follow_recording()
                 self.loop.tick()
             except Exception:
                 log.exception("closed loop tick failed")
+
+    def _follow_recording(self) -> None:
+        """Disarm when the recording the loop ran in ends (octacam). A loop armed
+        outside a recording (e.g. a test with a brush) runs until disarmed."""
+        rec = self.source.recording
+        if not self.loop.armed:
+            self._recording_seen = False
+        elif rec:
+            self._recording_seen = True
+        elif rec is False and self._recording_seen:
+            self._recording_seen = False
+            self.loop.disarm("recording ended")
 
     def _on_frame(self, frame: Frame) -> None:
         with self._lock:

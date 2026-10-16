@@ -205,7 +205,8 @@
     if (st?.loop.armed) {
       el.help.textContent = "Armed. The platform box and the dashed contact circle can still be " +
         "dragged; disarm to re-mark templates. Any manual action on this MFC (setpoint, puff, " +
-        "STOP) disarms the loop.";
+        "STOP) disarms the loop" + (st.source.recording != null
+          ? ", and so does the end of the recording if it was armed during one." : ".");
       return;
     }
     const missing = st?.calibration.missing || [];
@@ -504,7 +505,7 @@
 
   // --- status ------------------------------------------------------------------
   const STATE_TEXT = {
-    off: () => "OFF",
+    off: (l) => (l.reason === "recording ended" ? "OFF · recording ended" : "OFF"),
     ramp: (l) => `RAMP ${fmtv(l.flow)} ${unit}`,
     contact: () => "CONTACT · air off",
     paused: () => "PAUSED · no frames",
@@ -536,7 +537,7 @@
       (l.missing_s == null ? "" : ` · ball missing ${l.missing_s} s`);
     el.vCycles.textContent = String(l.cycles) + (l.vanished ? ` · ball vanished ${l.vanished}×` : "");
     el.vLast.textContent = l.last_contact_flow == null ? "–" : `${fmtv(l.last_contact_flow)} ${unit}`;
-    const rec = s.recording ? " · octacam recording" : "";
+    const rec = s.recording ? " · recording" : "";
     el.vPerf.textContent = s.connected
       ? `${s.fps ?? "–"} fps · tracking ${tr.track_ms ?? "–"} ms${rec}`
       : "not connected";

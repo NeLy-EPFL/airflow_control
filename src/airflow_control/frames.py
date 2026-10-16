@@ -62,6 +62,9 @@ class FrameSource:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._times: list[float] = []
+        # whether the source's recorder is recording: None when it has none (or
+        # it is not known yet)
+        self.recording: bool | None = None
 
     def describe(self) -> str:
         return self.kind
@@ -107,6 +110,7 @@ class FrameSource:
             "error": self.error,
             "frames": self.frames,
             "fps": round(fps, 1) if fps else None,
+            "recording": self.recording,
         }
 
 
@@ -117,6 +121,9 @@ class FrameSource:
 # u64 timestamp ns | f32 fps | u32 dropped | u16 crop x, y, w, h | u16 sensor w, h
 OCTACAM_HEADER = struct.Struct("<BBBBIQfIHHHHHH")
 OCTACAM_VERSION = 2
+# octacam states (its "state"/"telemetry" messages, ~2 Hz) during a recording:
+# armed and waiting for the first trigger, then recording
+OCTACAM_RECORDING_STATES = ("waiting", "recording")
 
 
 def octacam_ws_url(url: str) -> str:
@@ -137,7 +144,8 @@ class OctacamSource(FrameSource):
     The preview runs at octacam's display rate (``gui.display_refresh_interval_ms``,
     ~30 Hz), at most 640 px on the long edge, JPEG-encoded. Frames only flow
     while the camera is grabbing (with an external trigger: while it is
-    triggered).
+    triggered). ``recording`` follows octacam's state messages, which come
+    whether frames flow or not.
     """
 
     kind = "octacam"
@@ -149,7 +157,7 @@ class OctacamSource(FrameSource):
         self.reconnect_s = reconnect_s
         self.camera_index: int | None = None
         self.sensor: tuple[int, int] | None = None
-        self.recording = False
+        self.state: str | None = None  # octacam's: idle, preview, waiting, recording, …
 
     def describe(self) -> str:
         return f"octacam {self.camera} @ {self.url}"
@@ -187,6 +195,10 @@ class OctacamSource(FrameSource):
             m = json.loads(msg)
         except ValueError:
             return
+        if m.get("type") in ("state", "telemetry") and m.get("state"):
+            self.state = m["state"]
+            self.recording = self.state in OCTACAM_RECORDING_STATES
+            return
         if m.get("type") != "system":
             return
         cams = m.get("cameras") or []
@@ -219,7 +231,8 @@ class OctacamSource(FrameSource):
         jpeg = bytes(msg[OCTACAM_HEADER.size :])
         image = np.asarray(Image.open(io.BytesIO(jpeg)).convert("L"))
         self.sensor = (geom[4], geom[5])
-        self.recording = bool(flags & 1)
+        if self.state is None:  # no state message yet
+            self.recording = bool(flags & 1)
         self._emit(
             Frame(
                 image=image,
@@ -227,12 +240,12 @@ class OctacamSource(FrameSource):
                 seq=number,
                 jpeg=jpeg,
                 source_ts_ns=ts_ns,
-                recording=self.recording,
+                recording=bool(flags & 1),
             )
         )
 
     def status(self) -> dict:
-        return {**super().status(), "camera": self.camera, "recording": self.recording}
+        return {**super().status(), "camera": self.camera, "octacam_state": self.state}
 
 
 # --- video file ---------------------------------------------------------------
