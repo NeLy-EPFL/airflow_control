@@ -1,6 +1,13 @@
 # TODO
 
 ## Closed-loop ball delivery
+- [ ] Check the next 2P day's logs (`airflow_*.jsonl` + `track_*.jsonl`) with
+      the 2026-10-23 settings (release_hold_s 5, release_dist 1,
+      occluded_hold_s 20): every air onset during a recording should follow a
+      ball pushed beyond 1 diameter or rolled back (no release of a ball last
+      seen at the fly, no burst at arming), and a ball out of reach should get
+      air within release_hold_s. Look at the takes where a covered ball held
+      the full 20 s: covered, or really gone? Tune occluded_hold_s from that.
 - [ ] First run on the rig with a fly: calibrate camera_LM in the live view,
       tune the ramp (start, step, interval, maximum) and the contact / release
       distances and times.
