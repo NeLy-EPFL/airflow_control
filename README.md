@@ -208,7 +208,9 @@ The loop drives one MFC:
 2. **Contact:** the ball is held at the platform for a short time → air off, so
    the animal can push.
 3. **Pushed away:** the ball stays farther than a release distance (or out of
-   view) for a while → back to 1, from the start flow.
+   view) for a while → back to 1, from the start flow. Arming (or resuming
+   after a pause) with the ball within the release distance counts as contact,
+   so a take does not start with a short burst of air.
 
 4. **Rest:** if the ramp sits at its maximum for a while without contact (ball
    stuck, fallen off, or not tracked), air off for a rest, then back to 1.
@@ -230,8 +232,11 @@ its motion by one frame. If the ball vanishes anywhere else (the animal
 covering it, or a fall), the loop waits up to 2 s: the ramp holds its flow and
 a contact isn't counted as released, so a brief occlusion doesn't restart the
 air. After that it carries on as if the ball had rolled back, and counts it
-(*ball vanished n×* in the status). A ball that really fell off gets ramps and
-rests until the recording ends (which disarms the loop) and you replace it.
+(*ball vanished n×* in the status). A ball that vanishes at the animal (last
+seen within the release distance) while the air is off is most likely covered
+by it: that wait is *at the fly* (20 s by default), so the air does not come on
+while the animal still holds the ball. A ball that really fell off gets ramps
+and rests until the recording ends (which disarms the loop) and you replace it.
 
 ### Tracking
 

@@ -260,3 +260,57 @@ def test_recording_end_disarms_a_loop_armed_during_it(loop):
     tr.loop.arm(det(1.0))  # armed again, between recordings: runs until disarmed
     tr._follow_recording()
     assert tr.loop.state == "ramp"
+
+
+def test_ball_covered_at_the_fly_holds_the_contact(loop):
+    # 2026-10-22: 11 of 48 releases were a ball last seen at contact, then
+    # out of sight (the fly covering it): the air came on 5.2 s later while the
+    # fly still had it. Covered at the fly, it holds for occluded_hold_s.
+    loop.params.update(occluded_hold_s=20)
+    loop.arm(det(0.0))
+    t = time.monotonic()
+    seen(loop, 0.05, t + 0.5)  # at the fly
+    for k in range(1, 40):  # out of sight for 19.5 s
+        loop.update(det(None), t + 0.5 + 0.5 * k)
+    assert loop.state == "contact" and setpoint(loop) == 0.0 and loop.vanished == 0
+    assert loop.status()["missing_limit_s"] == 20
+    # A ball that really fell off is still delivered again.
+    loop.update(det(None), t + 21.0)
+    assert loop.vanished == 1
+    loop.update(det(None), t + 22.1)
+    assert loop.state == "ramp" and setpoint(loop) == 0.6
+
+
+def test_a_ball_covered_mid_ramp_still_holds_only_briefly(loop):
+    # Air on: the long hold would blow at a ball it cannot see for 20 s.
+    loop.params.update(occluded_hold_s=20)
+    loop.arm(det(1.0, edge=True))
+    t = time.monotonic()
+    seen(loop, 0.1, t + 1.0)  # arrived, contact not held long enough yet
+    loop.update(det(None), t + 1.1)
+    assert loop.status()["missing_limit_s"] == loop.params.missing_hold_s
+    loop.update(det(None), t + 3.2)
+    assert loop.vanished == 1
+
+
+@pytest.mark.parametrize("distance", [0.25, 0.9])
+def test_arming_near_the_fly_is_contact(distance):
+    # 2026-10-22: 8 of 29 takes started with a ball 0.24-0.44 diameters off the
+    # contact point: a ramp, contact again within 0.8 s, a short air burst.
+    ch = Channel(fake_mfc("air", 1), EventLog(None))
+    loop = ClosedLoop(ch, ch.events, LoopParams(release_dist=1.0))
+    loop.arm(det(distance))
+    assert loop.state == "contact" and setpoint(loop) == 0.0
+    loop2 = ClosedLoop(ch, ch.events, LoopParams(release_dist=1.0))
+    loop2.arm(det(1.5))  # out of reach: deliver it
+    assert loop2.state == "ramp"
+
+
+def test_resuming_near_the_fly_is_contact(loop):
+    loop.arm(det(1.0))
+    t = time.monotonic()
+    loop.update(det(1.0), t + 0.5)
+    loop.tick(t + 1.6)
+    assert loop.state == "paused"
+    loop.update(det(0.25), t + 3)  # within release_dist (0.3)
+    assert loop.state == "contact" and setpoint(loop) == 0.0

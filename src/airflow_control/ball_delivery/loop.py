@@ -26,6 +26,14 @@ A ball normally leaves the view through the edge it comes from (rolling back
 down the track). One that vanishes elsewhere (the animal covering it, or a
 fall) holds the loop for up to missing_hold_s: the ramp doesn't step and a
 contact isn't released. After that it is treated like a ball that rolled back.
+One that vanishes at the animal (last seen within release_dist) while the air
+is off is most likely covered by it, not gone: it holds the contact for
+occluded_hold_s instead (2026-10-22: 11 of 48 releases were a ball last seen at
+contact, the air coming on 5.2 s later while the fly still had it).
+
+Arming, or resuming after a pause, with the ball within release_dist counts as
+contact: a ball just off the contact point was blown back in under a second, a
+brief air burst at the start of a take (8 of 29 takes, 2026-10-22).
 A ball counts as on the track only after MIN_SEEN_FRAMES sightings in a row
 (a lone match doesn't place it).
 
@@ -71,6 +79,7 @@ class LoopParams:
     release_hold_s: float = 1.0  # ... for this long -> ramp again
     frame_timeout_s: float = 1.0  # no frame for this long -> paused, air off
     missing_hold_s: float = 2.0  # vanished off the track: hold the loop at most this long
+    occluded_hold_s: float = 20.0  # vanished at the animal, air off: hold this long
     threshold: float = 0.6  # ball match score counted as visible
 
     def update(self, **values) -> None:
@@ -119,6 +128,7 @@ class ClosedLoop:
         self._last_seen_edge: bool | None = None
         self._seen_run = 0  # consecutive frames with the ball visible
         self._missing_since: float | None = None
+        self._last_seen_dist: float | None = None  # distance at its last sighting
 
     @property
     def armed(self) -> bool:
@@ -128,6 +138,7 @@ class ClosedLoop:
         self._last_seen_edge = None
         self._seen_run = 0
         self._missing_since = None
+        self._last_seen_dist = None
 
     @property
     def max_flow(self) -> float:
@@ -171,7 +182,7 @@ class ClosedLoop:
             self._forget_ball()
             self._last_frame = now if det is not None else None
             self.events.write(self.channel.name, "loop_arm", params=self.params.as_dict())
-            if det is not None and self._at_contact(det):
+            if det is not None and self._near(det):
                 self._air_off("contact", now, "contact")
             else:
                 self._start_ramp(now, "ramp_start")
@@ -192,6 +203,18 @@ class ClosedLoop:
     def _at_contact(self, det: Detection) -> bool:
         return det.distance is not None and det.distance <= self.params.contact_dist
 
+    def _near(self, det: Detection) -> bool:
+        """Within the animal's reach: not pushed away (see release_dist)."""
+        return det.distance is not None and det.distance <= self.params.release_dist
+
+    def _missing_limit(self) -> float:
+        """How long a ball that vanished off the track holds the loop (module doc)."""
+        p = self.params
+        last = self._last_seen_dist
+        if self.state == "contact" and last is not None and last <= p.release_dist:
+            return p.occluded_hold_s
+        return p.missing_hold_s
+
     def _away(self, det: Detection) -> bool:
         if not det.visible:  # gone back down the track, unless it is missing
             return self._missing_since is None
@@ -210,7 +233,7 @@ class ClosedLoop:
         elif self._last_seen_edge is False:  # vanished away from the entry edge
             if self._missing_since is None:
                 self._missing_since = now
-            elif now - self._missing_since >= self.params.missing_hold_s:
+            elif now - self._missing_since >= self._missing_limit():
                 # stop waiting: carry on as if it had rolled back down the track
                 self.vanished += 1
                 self.events.write(self.channel.name, "loop_ball_vanished",
@@ -227,13 +250,15 @@ class ClosedLoop:
                 return
             if self.state == "paused":
                 self._forget_ball()
-                if self._at_contact(det):
+                if self._near(det):
                     self._goto("contact", now)
                 else:
                     self._start_ramp(now, "resume")
                 return
 
             self._track_ball(det, now)
+            if det.visible and det.distance is not None:
+                self._last_seen_dist = det.distance
             contact = self._at_contact(det)
             away = self._away(det)
             self._contact_since = (self._contact_since or now) if contact else None
@@ -317,6 +342,8 @@ class ClosedLoop:
             "missing_s": None
             if self._missing_since is None
             else round(now - self._missing_since, 1),
+            # how long the missing ball holds the loop (missing or occluded hold)
+            "missing_limit_s": self._missing_limit(),
             "in_state_s": round(now - self._t_state, 1),
             # how long the current contact / pushed-away condition has held (armed only)
             "contact_s": None

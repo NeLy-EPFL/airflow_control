@@ -36,6 +36,7 @@
     ["Contact", [["contact_dist", "within", "Ø"], ["contact_hold_s", "for", "s"]]],
     ["Pushed away", [["release_dist", "beyond", "Ø"], ["release_hold_s", "for", "s"]]],
     ["Ball vanished", [["missing_hold_s", "off the track: wait", "s, then carry on"]]],
+    ["", [["occluded_hold_s", "at the fly (air off): wait", "s"]]],
     ["Detection", [["threshold", "score ≥", ""], ["frame_timeout_s", "pause after", "s w/o frames"]]],
   ];
   const WINDOW = 30;
@@ -295,7 +296,7 @@
     }
     if (l.missing_s != null && l.armed) {
       text += ` · ball missing ${fmtv(l.missing_s, 1)}` +
-        `/${p.missing_hold_s} s`;
+        `/${l.missing_limit_s ?? p.missing_hold_s} s`;
     }
     const color = { off: "#cfd3da", ramp: C.platform, contact: C.ball, paused: C.contact, rest: C.contact }[l.state] || C.miss;
     return { text, color };
